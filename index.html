@@ -1,1 +1,615 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance UI Replica</title>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the Inter font and overall dark theme */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font */
+            background-color: #1a1a1a; /* Dark background matching Binance */
+            color: #e0e0e0; /* Light text color for contrast */
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        /* Hide scrollbar for a cleaner look, common in mobile apps */
+        body::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        /* Custom yellow for Binance elements */
+        .binance-yellow {
+            background-color: #FCD535; /* Specific Binance yellow */
+        }
+        .text-binance-yellow {
+            color: #FCD535;
+        }
+        .border-binance-yellow {
+            border-color: #FCD535;
+        }
+
+        /* Animations */
+        .animated-button {
+            transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        }
+        .animated-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .animated-button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        .animated-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .animated-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        .flash-message {
+            animation: fadeOut 3s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; display: none; }
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #2a2a2a;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 400px;
+            color: #e0e0e0;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            background-color: #3a3a3a;
+            color: #e0e0e0;
+        }
+        .modal-button {
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .modal-button-primary {
+            background-color: #FCD535;
+            color: #1a1a1a;
+        }
+        .modal-button-secondary {
+            background-color: #4a4a4a;
+            color: #e0e0e0;
+        }
+        .modal-button-primary:hover {
+            background-color: #e0c22e;
+        }
+        .modal-button-secondary:hover {
+            background-color: #5a5a5a;
+        }
+        .modal-error {
+            color: #ef4444; /* Red color for error messages */
+            font-size: 0.875rem; /* text-sm */
+            margin-top: -8px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Exchange/Wallet Tabs -->
+    <div class="flex justify-center p-2 bg-[#121212]">
+        <div class="flex bg-gray-700 rounded-full p-1">
+            <button onclick="requestPasskey('Exchange Tab')" class="px-6 py-1 text-sm font-semibold rounded-full binance-yellow text-black animated-button">Exchange</button>
+            <button onclick="requestPasskey('Wallet Tab')" class="px-6 py-1 text-sm font-semibold rounded-full text-gray-400 animated-button">Wallet</button>
+        </div>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <div class="flex justify-around py-3 bg-[#121212] border-b border-gray-700">
+        <button onclick="requestPasskey('Overview Tab')" class="text-sm font-semibold text-binance-yellow border-b-2 border-binance-yellow pb-2 animated-button">Overview</button>
+        <button onclick="requestPasskey('Funding Tab')" class="text-sm font-semibold text-gray-400 pb-2 animated-button">Funding</button>
+        <button onclick="requestPasskey('Spot Tab')" class="text-sm font-semibold text-gray-400 pb-2 animated-button">Spot</button>
+        <button onclick="requestPasskey('Futures Tab')" class="text-sm font-semibold text-gray-400 pb-2 animated-button">Futures</button>
+    </div>
+
+    <!-- Message display area -->
+    <div id="message-box" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg z-50 hidden"></div>
+
+    <!-- Modals -->
+
+    <!-- Passkey Modal -->
+    <div id="passkey-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">Enter Passkey</h3>
+            <input type="password" id="passkey-input" class="modal-input" placeholder="Enter 4-digit passkey">
+            <p id="passkey-error" class="modal-error hidden"></p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeModal('passkey-modal')" class="modal-button modal-button-secondary">Cancel</button>
+                <button onclick="handlePasskeyConfirm()" class="modal-button modal-button-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Modal -->
+    <div id="send-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">Send Funds</h3>
+            <input type="text" id="send-binance-id" class="modal-input" placeholder="Binance ID/Email/Phone">
+            <input type="number" id="send-amount" class="modal-input" placeholder="Amount USDT">
+            <p id="send-error" class="modal-error hidden"></p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeModal('send-modal')" class="modal-button modal-button-secondary">Cancel</button>
+                <button onclick="handleSendConfirm()" class="modal-button modal-button-primary">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Funds Modal -->
+    <div id="add-funds-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">Add Funds</h3>
+            <input type="number" id="add-amount" class="modal-input" placeholder="Amount USDT">
+            <p id="add-error" class="modal-error hidden"></p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeModal('add-funds-modal')" class="modal-button modal-button-secondary">Cancel</button>
+                <button onclick="handleAddFundsConfirm()" class="modal-button modal-button-primary">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transfer-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">Transfer Funds</h3>
+            <input type="text" id="transfer-from" class="modal-input" placeholder="From Account (e.g., Spot)">
+            <input type="text" id="transfer-to" class="modal-input" placeholder="To Account (e.g., Futures)">
+            <input type="number" id="transfer-amount" class="modal-input" placeholder="Amount USDT">
+            <p id="transfer-error" class="modal-error hidden"></p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeModal('transfer-modal')" class="modal-button modal-button-secondary">Cancel</button>
+                <button onclick="handleTransferConfirm()" class="modal-button modal-button-primary">Transfer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-grow p-4 bg-[#1a1a1a] overflow-auto">
+        <!-- Estimated Total Value -->
+        <div class="bg-[#2a2a2a] p-4 rounded-lg shadow-md mb-4 animated-card">
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center">
+                    <span class="text-gray-400 text-sm">Est. Total Value</span>
+                    <!-- Eye icon -->
+                    <svg class="w-4 h-4 ml-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <!-- Square icon -->
+                <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 10H4V6h12v8z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="flex items-center mb-2">
+                <span id="total-balance-display" class="text-3xl font-bold mr-2">Loading...</span>
+                <span class="text-lg font-semibold text-gray-400">USDT</span>
+                <!-- Down arrow icon -->
+                <svg class="w-4 h-4 ml-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <p id="total-balance-usd-display" class="text-sm text-gray-400 mb-4">≈ $0.00</p>
+            <div class="flex justify-between items-center text-sm text-gray-400">
+                <span>Today's PNL <span id="pnl-display" class="text-green-500">Loading...</span></span>
+                <!-- Right arrow icon -->
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-around mb-6">
+            <button onclick="requestPasskey('add-funds-modal')" class="binance-yellow text-black font-semibold py-2 px-6 rounded-md shadow-md animated-button">Add Funds</button>
+            <button onclick="requestPasskey('send-modal')" class="bg-gray-700 text-gray-300 font-semibold py-2 px-6 rounded-md shadow-md animated-button">Send</button>
+            <button onclick="requestPasskey('transfer-modal')" class="bg-gray-700 text-gray-300 font-semibold py-2 px-6 rounded-md shadow-md animated-button">Transfer</button>
+        </div>
+
+        <!-- Balances Section -->
+        <div class="bg-[#2a2a2a] p-4 rounded-lg shadow-md animated-card">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Balances</h3>
+                <div class="flex items-center">
+                    <label class="flex items-center text-sm text-gray-400 mr-4">
+                        <input type="checkbox" class="form-checkbox h-4 w-4 text-binance-yellow bg-gray-700 border-gray-600 rounded-sm focus:ring-binance-yellow mr-2">
+                        Hide assets &lt; 1 USD
+                    </label>
+                    <!-- Search icon -->
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- BNB Asset (keeping original small balance for realism) -->
+            <div class="flex justify-between items-center py-3 border-b border-gray-700">
+                <div class="flex items-center">
+                    <!-- BNB icon placeholder (simple circle) -->
+                    <div class="w-6 h-6 rounded-full binance-yellow flex items-center justify-center text-black font-bold text-xs mr-3">B</div>
+                    <div>
+                        <p class="font-semibold">BNB</p>
+                        <p class="text-xs text-gray-400">BNB</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-semibold">0.00000358</p>
+                    <p class="text-xs text-gray-400">Available <span class="text-white">0.00000358</span></p>
+                    <p class="text-xs text-gray-400">Freeze <span class="text-white">0.00</span></p>
+                </div>
+            </div>
+
+            <!-- USDT Asset (keeping original small balance for realism) -->
+            <div class="flex justify-between items-center py-3">
+                <div class="flex items-center">
+                    <!-- USDT icon placeholder (simple diamond) -->
+                    <div class="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-black font-bold text-xs mr-3">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold">USDT</p>
+                        <p class="text-xs text-gray-400">TetherUS</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-semibold">0.00082869</p>
+                    <p class="text-xs text-gray-400">Available <span class="text-white">0.00082869</span></p>
+                    <p class="text-xs text-gray-400">Freeze <span class="text-white">0.00</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="flex justify-around items-center py-2 bg-[#121212] border-t border-gray-700">
+        <div class="flex flex-col items-center text-xs text-gray-400">
+            <button onclick="requestPasskey('Home Nav')" class="flex flex-col items-center animated-button">
+                <!-- Home icon -->
+                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                </svg>
+                <span>Home</span>
+            </button>
+        </div>
+        <div class="flex flex-col items-center text-xs text-gray-400">
+            <button onclick="requestPasskey('Markets Nav')" class="flex flex-col items-center animated-button">
+                <!-- Markets icon -->
+                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Markets</span>
+            </button>
+        </div>
+        <div class="flex flex-col items-center text-xs text-gray-400">
+            <button onclick="requestPasskey('Trade Nav')" class="flex flex-col items-center animated-button">
+                <!-- Trade icon -->
+                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Trade</span>
+            </button>
+        </div>
+        <div class="flex flex-col items-center text-xs text-gray-400">
+            <button onclick="requestPasskey('Futures Nav')" class="flex flex-col items-center animated-button">
+                <!-- Futures icon -->
+                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Futures</span>
+            </button>
+        </div>
+        <div class="flex flex-col items-center text-xs text-binance-yellow">
+            <button onclick="requestPasskey('Assets Nav')" class="flex flex-col items-center animated-button">
+                <!-- Assets icon -->
+                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm12 10H4V6h12v8z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Assets</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for financial data
+        let totalBalance = 0;
+        const pnlPercentages = [60, 50, 87]; // PNL percentages to cycle through daily
+        const defaultInitialBalance = 31507.87;
+        const correctPasskey = '7777'; // The required passkey
+
+        // Variable to store the action to perform after successful passkey entry
+        let pendingAction = null;
+
+        /**
+         * Formats a number with thousands separators and two decimal places.
+         * @param {number} num - The number to format.
+         * @returns {string} The formatted number string.
+         */
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        /**
+         * Displays a temporary message on the screen.
+         * @param {string} msg - The message to display.
+         * @param {string} type - 'success', 'error', or 'info' (for styling).
+         */
+        function showMessage(msg, type = 'info') {
+            const messageBox = document.getElementById('message-box');
+            messageBox.textContent = msg;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.remove('flash-message'); // Remove previous animation class if any
+            // Remove previous type classes
+            messageBox.classList.remove('bg-green-600', 'bg-red-600', 'bg-gray-800');
+
+            // Add new type class
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-600');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-600');
+            } else {
+                messageBox.classList.add('bg-gray-800');
+            }
+
+            void messageBox.offsetWidth; // Trigger reflow to restart animation
+            messageBox.classList.add('flash-message'); // Add animation class
+
+            // Hide the message after the animation completes (3 seconds)
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * Opens a modal by making its overlay visible.
+         * @param {string} modalId - The ID of the modal to open.
+         */
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+            // Clear any previous error messages in the modal
+            const errorElement = document.getElementById(`${modalId.replace('-modal', '')}-error`);
+            if (errorElement) {
+                errorElement.classList.add('hidden');
+                errorElement.textContent = '';
+            }
+        }
+
+        /**
+         * Closes a modal by making its overlay hidden.
+         * @param {string} modalId - The ID of the modal to close.
+         */
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            // Clear input fields when closing modal
+            const inputs = document.querySelectorAll(`#${modalId} input`);
+            inputs.forEach(input => input.value = '');
+        }
+
+        /**
+         * Requests the passkey before performing an action.
+         * @param {string} actionIdentifier - A string identifying the action to perform after passkey verification.
+         * Can be a modal ID (e.g., 'send-modal') or a button name (e.g., 'Home Nav').
+         */
+        function requestPasskey(actionIdentifier) {
+            pendingAction = actionIdentifier;
+            openModal('passkey-modal');
+            document.getElementById('passkey-input').focus(); // Focus on the input field
+        }
+
+        /**
+         * Handles the confirmation of the passkey.
+         */
+        function handlePasskeyConfirm() {
+            const passkeyInput = document.getElementById('passkey-input');
+            const passkeyError = document.getElementById('passkey-error');
+            const enteredPasskey = passkeyInput.value;
+
+            passkeyError.classList.add('hidden'); // Hide previous errors
+
+            if (enteredPasskey === correctPasskey) {
+                closeModal('passkey-modal');
+                // Execute the pending action
+                if (pendingAction) {
+                    if (pendingAction.endsWith('-modal')) {
+                        openModal(pendingAction); // Open the specific modal
+                    } else {
+                        handleButtonClick(pendingAction); // Simulate general button click
+                    }
+                }
+                pendingAction = null; // Clear pending action
+            } else {
+                passkeyError.textContent = 'Invalid Passkey';
+                passkeyError.classList.remove('hidden');
+                passkeyInput.value = ''; // Clear input for retry
+            }
+        }
+
+        /**
+         * Handles general button clicks (e.g., navigation tabs) and displays a message.
+         * This function is now called *after* passkey verification.
+         * @param {string} buttonName - The name of the clicked button.
+         */
+        function handleButtonClick(buttonName) {
+            showMessage(`${buttonName} clicked!`);
+        }
+
+        /**
+         * Updates the main balance and PNL display on the UI.
+         * Also saves the current state to localStorage.
+         */
+        function updateUI() {
+            document.getElementById('total-balance-display').textContent = formatNumber(totalBalance);
+            document.getElementById('total-balance-usd-display').textContent = `≈ $${formatNumber(totalBalance)}`;
+
+            const today = new Date().toDateString();
+            let lastPnlUpdateDate = localStorage.getItem('lastPnlUpdateDate');
+            let currentPnlIndex = parseInt(localStorage.getItem('currentPnlIndex') || '0', 10);
+
+            let todayPnlPercentage;
+
+            if (lastPnlUpdateDate !== today) {
+                // It's a new day, cycle the PNL percentage
+                currentPnlIndex = (currentPnlIndex + 1) % pnlPercentages.length;
+                todayPnlPercentage = pnlPercentages[currentPnlIndex];
+
+                // Save the new state to localStorage
+                localStorage.setItem('lastPnlUpdateDate', today);
+                localStorage.setItem('currentPnlIndex', currentPnlIndex.toString());
+                localStorage.setItem('todayPnlPercentage', todayPnlPercentage.toString());
+            } else {
+                // It's the same day, load PNL from localStorage
+                todayPnlPercentage = parseFloat(localStorage.getItem('todayPnlPercentage') || pnlPercentages[0].toString());
+            }
+
+            // Calculate PNL amount based on the current total balance
+            const todayPnlAmount = (totalBalance * (todayPnlPercentage / 100));
+            document.getElementById('pnl-display').textContent = `${formatNumber(todayPnlAmount)} USDT (+${todayPnlPercentage.toFixed(2)}%)`;
+
+            // Save totalBalance to localStorage
+            localStorage.setItem('totalBalance', totalBalance.toFixed(2));
+        }
+
+        /**
+         * Handles the confirmation for sending funds.
+         */
+        function handleSendConfirm() {
+            const binanceId = document.getElementById('send-binance-id').value;
+            const sendAmount = parseFloat(document.getElementById('send-amount').value);
+            const sendError = document.getElementById('send-error');
+
+            sendError.classList.add('hidden'); // Hide previous errors
+
+            if (!binanceId) {
+                sendError.textContent = 'Please enter a Binance ID.';
+                sendError.classList.remove('hidden');
+                return;
+            }
+
+            if (isNaN(sendAmount) || sendAmount <= 0) {
+                sendError.textContent = 'Please enter a valid positive amount.';
+                sendError.classList.remove('hidden');
+                return;
+            }
+
+            if (sendAmount > totalBalance) {
+                sendError.textContent = 'Insufficient balance.';
+                sendError.classList.remove('hidden');
+                return;
+            }
+
+            totalBalance -= sendAmount;
+            updateUI();
+            showMessage(`Successfully sent ${formatNumber(sendAmount)} USDT to ${binanceId}!`, 'success');
+            closeModal('send-modal');
+        }
+
+        /**
+         * Handles the confirmation for adding funds.
+         */
+        function handleAddFundsConfirm() {
+            const addAmount = parseFloat(document.getElementById('add-amount').value);
+            const addError = document.getElementById('add-error');
+
+            addError.classList.add('hidden'); // Hide previous errors
+
+            if (isNaN(addAmount) || addAmount <= 0) {
+                addError.textContent = 'Please enter a valid positive amount.';
+                addError.classList.remove('hidden');
+                return;
+            }
+
+            totalBalance += addAmount;
+            updateUI();
+            showMessage(`Funds added successfully: ${formatNumber(addAmount)} USDT!`, 'success');
+            closeModal('add-funds-modal');
+        }
+
+        /**
+         * Handles the confirmation for transferring funds.
+         */
+        function handleTransferConfirm() {
+            const fromAccount = document.getElementById('transfer-from').value;
+            const toAccount = document.getElementById('transfer-to').value;
+            const transferAmount = parseFloat(document.getElementById('transfer-amount').value);
+            const transferError = document.getElementById('transfer-error');
+
+            transferError.classList.add('hidden'); // Hide previous errors
+
+            if (!fromAccount || !toAccount) {
+                transferError.textContent = 'Please specify both From and To accounts.';
+                transferError.classList.remove('hidden');
+                return;
+            }
+
+            if (isNaN(transferAmount) || transferAmount <= 0) {
+                transferError.textContent = 'Please enter a valid positive amount.';
+                transferError.classList.remove('hidden');
+                return;
+            }
+
+            // For simplicity, internal transfers don't affect totalBalance in this replica
+            showMessage(`Transfer successful: ${formatNumber(transferAmount)} USDT from ${fromAccount} to ${toAccount}!`, 'success');
+            closeModal('transfer-modal');
+        }
+
+        /**
+         * Initializes the financial display on page load.
+         * Loads balance from localStorage or sets a default.
+         */
+        function initializeFinancialDisplay() {
+            const savedBalance = localStorage.getItem('totalBalance');
+
+            if (savedBalance) {
+                totalBalance = parseFloat(savedBalance);
+            } else {
+                totalBalance = defaultInitialBalance;
+            }
+            updateUI();
+        }
+
+        // Call initializeFinancialDisplay when the window loads
+        window.onload = initializeFinancialDisplay;
+    </script>
+</body>
+</html>
